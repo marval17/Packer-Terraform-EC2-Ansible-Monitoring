@@ -26,20 +26,28 @@ End-to-end Infrastructure-as-Code workflow that bakes a hardened Ubuntu AMI with
 |------|-------------|
 | `packer/` | Packer template, scripts, and env vars for building the hardened Ubuntu AMI with node_exporter baked in. |
 | `terraform/` | Terraform configuration that creates the AWS VPC, subnet, internet gateway, security groups, and launches the EC2 instance from the AMI. |
-| `ansible/` | Placeholder for upcoming playbooks/roles that layer the application stack onto the EC2 host. |
-| `monitoring/` | Placeholder for Prometheus + Grafana deployment manifests/config. |
+| `ansible/` | Playbooks/roles that layer the application stack onto the EC2 host (starter Nginx role included). |
+| `monitoring/` | Docker Compose deployment for Prometheus + Grafana plus provisioning assets/dashboards. |
+| `.github/workflows/` | GitHub Actions workflow running lint/validate steps for Packer, Terraform, Ansible, shell scripts, and Compose. |
 
 ## Workflow
 
 1. **Bake AMI** – Run `packer/templates/ubuntu-droplet` to harden Ubuntu, lock down SSH, install node_exporter, and produce an AMI ID.
 2. **Provision AWS** – Feed that AMI ID into `terraform/` to create the network + EC2 host (public IP, security groups, etc.).
-3. **Configure Apps** – Use Ansible (coming soon) against the Terraform outputs to install Nginx/API services and any app-specific agents.
-4. **Monitor** – Point Prometheus at node_exporter (already on the image) and expose dashboards/alerts through Grafana.
+3. **Configure Apps** – Run Ansible (`ansible/site.yml`) against the Terraform outputs to install Nginx/API services and any app-specific agents.
+4. **Monitor** – Use `monitoring/docker-compose.yml` to run Prometheus + Grafana locally (or on a management host) and scrape the EC2 node_exporter endpoint.
 
 ## Getting started
 
 1. Build the AMI: follow `packer/templates/ubuntu-droplet/readme.md` (requires AWS credentials + Packer 1.8+).
 2. Deploy infrastructure: follow `terraform/README.md`, supplying the AMI ID and an existing EC2 key pair via `terraform.tfvars` or `-var`.
-3. Apply Ansible roles for the app stack, then deploy Prometheus/Grafana or hook into an existing monitoring cluster.
+3. Apply Ansible roles for the app stack (`cd ansible && ansible-playbook site.yml`) after plugging in the EC2 public IP.
+4. Deploy Prometheus/Grafana via `monitoring/docker-compose.yml`, pointing the Prometheus target at the EC2 node_exporter IP.
 
+## Roadmap
 
+- [x] Hardened AMI with monitoring baked in.
+- [x] AWS bootstrap (VPC, subnet, EC2) via Terraform.
+- [x] Baseline Ansible role/playbook for app services.
+- [x] Prometheus/Grafana deployment plus starter dashboard.
+- [x] CI/CD stages to run Packer → Terraform → Ansible automatically.

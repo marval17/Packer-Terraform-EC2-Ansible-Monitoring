@@ -1,0 +1,59 @@
+﻿name: IaC Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    env:
+      PACKER_VERSION: 1.10.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ansible
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get update -y
+          sudo apt-get install -y terraform
+          curl -L https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip -o packer.zip
+          unzip packer.zip -d ~/bin && echo "~/bin" >> $GITHUB_PATH
+          rm packer.zip
+          pip install ansible-lint
+
+      - name: Check Packer
+        working-directory: packer/templates/ubuntu-droplet
+        run: |
+          packer init .
+          packer validate .
+
+      - name: Terraform fmt & validate
+        working-directory: terraform
+        run: |
+          terraform fmt -check
+          terraform init -backend=false
+          terraform validate
+
+      - name: Ansible lint
+        working-directory: ansible
+        run: ansible-lint
+
+      - name: Shellcheck scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck packer/scripts/*.bash
+
+      - name: Docker Compose config check
+        working-directory: monitoring
+        run: docker compose config
