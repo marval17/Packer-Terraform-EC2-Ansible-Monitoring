@@ -1,0 +1,7 @@
+﻿---
+- name: Configure app servers
+  hosts: app
+  become: true
+  tags: [''app'']
+  roles:
+    - app

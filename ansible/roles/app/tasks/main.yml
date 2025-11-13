@@ -1,0 +1,25 @@
+﻿---
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name: "{{ app_packages }}"
+    state: present
+
+- name: Deploy nginx site configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: ''0644''
+  notify: restart nginx
+
+- name: Ensure nginx is enabled and running
+  service:
+    name: "{{ app_service_name }}"
+    state: started
+    enabled: true

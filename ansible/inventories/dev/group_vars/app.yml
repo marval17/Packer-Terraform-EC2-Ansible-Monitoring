@@ -1,0 +1,8 @@
+﻿app_packages:
+  - nginx
+  - git
+  - python3-pip
+
+app_service_name: nginx
+app_http_port: 80
+prometheus_node_exporter_port: 9100

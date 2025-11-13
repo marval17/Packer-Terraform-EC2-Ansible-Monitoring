@@ -1,0 +1,12 @@
+﻿server {
+    listen {{ app_http_port }} default_server;
+    listen [::]:{{ app_http_port }} default_server;
+    server_name _;
+
+    location / {
+        return 200 ''Hello from the baked AMI + Ansible'';
+    }
+
+    access_log /var/log/nginx/app-access.log;
+    error_log  /var/log/nginx/app-error.log;
+}
