@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "project_name" {
   type        = string
   description = "Logical name for tagging and resource grouping."
-  default     = "codex-platform"
+  default     = "infra-platform"
 }
 
 variable "environment" {

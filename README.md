@@ -1,23 +1,22 @@
-# Codex Infrastructure Pipeline
+# Infrastructure Delivery Pipeline
 
-End-to-end Infrastructure-as-Code example that bakes a hardened Ubuntu AMI with Packer, deploys it on AWS via Terraform, configures applications with Ansible (next), and feeds host metrics into a Prometheus + Grafana stack.
+End-to-end Infrastructure-as-Code workflow that bakes a hardened Ubuntu AMI with Packer, provisions AWS infrastructure via Terraform, (soon) configures apps with Ansible, and feeds telemetry into Prometheus + Grafana.
 
 ```
 ┌─────────────┐
-│   PACKER    │  → Builds hardened AMIs (base VM + monitoring agent)
+│   PACKER    │ → Hardened AMI + monitoring agent
 └──────┬──────┘
        │
 ┌──────▼──────┐
-│  TERRAFORM  │  → Creates AWS infrastructure (VPC, subnet, EC2, security)
+│  TERRAFORM  │ → AWS VPC, subnet, SGs, EC2
 └──────┬──────┘
        │
 ┌──────▼──────┐
-│   ANSIBLE   │  → Configures apps (Nginx, API, services) + app metrics
+│   ANSIBLE   │ → App + service configuration
 └──────┬──────┘
        │
 ┌──────▼─────────────┐
-│  PROMETHEUS STACK  │  → Collects metrics from servers & apps
-│     + GRAFANA      │  → Dashboards, alerting, visualizations
+│ PROMETHEUS/GRAFANA │ → Metrics, dashboards, alerts
 └────────────────────┘
 ```
 
@@ -25,28 +24,22 @@ End-to-end Infrastructure-as-Code example that bakes a hardened Ubuntu AMI with 
 
 | Path | Description |
 |------|-------------|
-| `packer/` | Packer template, scripts, and vars for building the hardened Ubuntu AMI with node_exporter baked in. |
-| `terraform/` | Terraform stack that provisions the AWS VPC/subnet/IGW, security groups, and EC2 instance sourced from the Packer AMI. |
-| `ansible/` | (Placeholder) will host playbooks/roles for application configuration on the EC2 host. |
-| `monitoring/` | (Placeholder) future Prometheus/Grafana manifests/configs. |
+| `packer/` | Packer template, scripts, and env vars for building the hardened Ubuntu AMI with node_exporter baked in. |
+| `terraform/` | Terraform configuration that creates the AWS VPC, subnet, internet gateway, security groups, and launches the EC2 instance from the AMI. |
+| `ansible/` | Placeholder for upcoming playbooks/roles that layer the application stack onto the EC2 host. |
+| `monitoring/` | Placeholder for Prometheus + Grafana deployment manifests/config. |
 
 ## Workflow
 
-1. **Bake AMI** – `packer/templates/ubuntu-droplet` builds the base image: apt hardening, SSH lockdown, node_exporter install, firewall tuning. Outputs an AMI ID.
-2. **Provision AWS** – `terraform/` consumes that AMI ID, builds the networking baseline, and launches a public EC2 instance with the hardened image.
-3. **Configure Apps (Ansible)** – Playbooks will run against the Terraform outputs to deploy Nginx/API and any app-specific agents/secrets.
-4. **Monitor** – Prometheus scrapes node_exporter (already baked in) and any future app exporters; Grafana dashboards/alerts visualize the system.
+1. **Bake AMI** – Run `packer/templates/ubuntu-droplet` to harden Ubuntu, lock down SSH, install node_exporter, and produce an AMI ID.
+2. **Provision AWS** – Feed that AMI ID into `terraform/` to create the network + EC2 host (public IP, security groups, etc.).
+3. **Configure Apps** – Use Ansible (coming soon) against the Terraform outputs to install Nginx/API services and any app-specific agents.
+4. **Monitor** – Point Prometheus at node_exporter (already on the image) and expose dashboards/alerts through Grafana.
 
 ## Getting started
 
-1. Build the AMI: follow `packer/templates/ubuntu-droplet/readme.md` (requires AWS creds + Packer).
-2. Provision infra: follow `terraform/README.md`, supplying the AMI ID and an EC2 key pair.
-3. (Upcoming) Run Ansible to install the app stack; deploy Prometheus/Grafana or hook into an existing monitoring cluster.
+1. Build the AMI: follow `packer/templates/ubuntu-droplet/readme.md` (requires AWS credentials + Packer 1.8+).
+2. Deploy infrastructure: follow `terraform/README.md`, supplying the AMI ID and an existing EC2 key pair via `terraform.tfvars` or `-var`.
+3. Apply Ansible roles for the app stack, then deploy Prometheus/Grafana or hook into an existing monitoring cluster.
 
-## Roadmap
 
-- ✅ Hardened AMI with monitoring baked in.
-- ✅ AWS VPC + EC2 bootstrap via Terraform.
-- ☐ Ansible roles/playbooks for the app tier.
-- ☐ Prometheus/Grafana deployment + dashboards.
-- ☐ CI/CD automation tying Packer → Terraform → Ansible together.

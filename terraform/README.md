@@ -32,7 +32,7 @@ monitoring_allowed_cidrs = [
   "10.20.0.0/16",
 ]
 extra_tags = {
-  Owner = "codex"
+  Owner = "infra"
 }
 ```
 
