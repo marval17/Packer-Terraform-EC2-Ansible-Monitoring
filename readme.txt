@@ -1,3 +1,5 @@
+This repo orchestrates the full pipeline: image creation → infrastructure provisioning → configuration management → monitoring/observability.
+
 ┌─────────────┐
 │   PACKER    │  → Builds hardened OS images (base VM)
 └──────┬──────┘
