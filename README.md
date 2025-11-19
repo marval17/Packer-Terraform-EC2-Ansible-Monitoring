@@ -1,156 +1,53 @@
-PredictionML
+# Infrastructure Delivery Pipeline
 
-End-to-end cloud-native machine learning platform that ingests NBA data, trains predictive models, deploys microservices on Kubernetes, and exposes real-time predictions through an API and frontend — all powered by Terraform, EKS, ArgoCD, Docker, Prometheus, and Grafana.
+End-to-end Infrastructure-as-Code workflow that bakes a hardened Ubuntu AMI with Packer, provisions AWS infrastructure via Terraform, (soon) configures apps with Ansible, and feeds telemetry into Prometheus + Grafana.
 
-Platform Delivery Pipeline
-
-End-to-end DevOps + MLOps workflow that automates data ingestion, model training, infrastructure provisioning, microservice deployment, and monitoring.
-
-┌───────────────┐
-│     DATA      │ → NBA stats ingestion + ETL jobs
-└──────┬────────┘
-       │
-┌──────▼──────┐
-│   ML JOBS   │ → Nightly model training + artifact output
+```
+┌─────────────┐
+│   PACKER    │ → Hardened AMI + monitoring agent
 └──────┬──────┘
        │
-┌──────▼─────────┐
-│   TERRAFORM    │ → AWS VPC, EKS, RDS, ECR, IAM
-└──────┬─────────┘
+┌──────▼──────┐
+│  TERRAFORM  │ → AWS VPC, subnet, SGs, EC2
+└──────┬──────┘
        │
 ┌──────▼──────┐
-│ KUBERNETES  │ → prediction-api, frontend, ETL, CronJobs
+│   ANSIBLE   │ → App + service configuration
 └──────┬──────┘
        │
 ┌──────▼─────────────┐
-│  ARGOCD (GitOps)    │ → Continuous deployment
-└──────┬──────────────┘
-       │
-┌──────▼──────────────┐
-│ PROMETHEUS/GRAFANA  │ → Metrics, dashboards, alerts
-└──────────────────────┘
+│ PROMETHEUS/GRAFANA │ → Metrics, dashboards, alerts
+└────────────────────┘
+```
 
-Repository Layout
-Path	Description
-terraform/	Terraform configuration that provisions the AWS VPC, private/public subnets, NAT gateway, EKS cluster, RDS PostgreSQL instance, ECR repositories, and IAM roles.
-services/prediction-api/	Python/Node inference service that loads the trained model and exposes an API for prediction requests.
-services/data-service/	ETL/ingestion microservice that fetches NBA data and loads it into the RDS database.
-services/ml-jobs/	Kubernetes CronJobs for nightly training + model artifact generation.
-services/frontend/	Frontend application that displays predictions and game insights.
-kubernetes/	Kubernetes manifests deployed via ArgoCD (Ingress, Deployments, CronJobs, ConfigMaps, Services, etc.).
-.github/workflows/	GitHub Actions workflows that build/push Docker images to ECR and trigger GitOps sync.
-Workflow
-1. Data ingestion
+## Repository layout
 
-data-service connects to NBA APIs, collects game/player stats, and stores processed data in RDS.
+| Path | Description |
+|------|-------------|
+| `packer/` | Packer template, scripts, and env vars for building the hardened Ubuntu AMI with node_exporter baked in. |
+| `terraform/` | Terraform configuration that creates the AWS VPC, subnet, internet gateway, security groups, and launches the EC2 instance from the AMI. |
+| `ansible/` | Playbooks/roles that layer the application stack onto the EC2 host (starter Nginx role included). |
+| `monitoring/` | Docker Compose deployment for Prometheus + Grafana plus provisioning assets/dashboards. |
+| `.github/workflows/` | GitHub Actions workflow running lint/validate steps for Packer, Terraform, Ansible, shell scripts, and Compose. |
 
-2. Model training
+## Workflow
 
-ml-jobs CronJob trains a fresh model nightly and uploads the serialized artifact to S3 or internal storage.
+1. **Bake AMI** – Run `packer/templates/ubuntu-droplet` to harden Ubuntu, lock down SSH, install node_exporter, and produce an AMI ID.
+2. **Provision AWS** – Feed that AMI ID into `terraform/` to create the network + EC2 host (public IP, security groups, etc.).
+3. **Configure Apps** – Run Ansible (`ansible/site.yml`) against the Terraform outputs to install Nginx/API services and any app-specific agents.
+4. **Monitor** – Use `monitoring/docker-compose.yml` to run Prometheus + Grafana locally (or on a management host) and scrape the EC2 node_exporter endpoint.
 
-3. Infrastructure provisioning
+## Getting started
 
-Terraform provisions the full AWS environment:
+1. Build the AMI: follow `packer/templates/ubuntu-droplet/readme.md` (requires AWS credentials + Packer 1.8+).
+2. Deploy infrastructure: follow `terraform/README.md`, supplying the AMI ID and an existing EC2 key pair via `terraform.tfvars` or `-var`.
+3. Apply Ansible roles for the app stack (`cd ansible && ansible-playbook site.yml`) after plugging in the EC2 public IP.
+4. Deploy Prometheus/Grafana via `monitoring/docker-compose.yml`, pointing the Prometheus target at the EC2 node_exporter IP.
 
-VPC + subnets
+## Roadmap
 
-EKS cluster + node groups
-
-RDS Postgres
-
-ECR repositories
-
-IAM roles, OIDC, SGs
-
-Outputs include:
-
-Kubernetes cluster config
-
-Database endpoint
-
-ECR URLs
-
-4. Application deployment
-
-ArgoCD monitors the GitOps manifests in kubernetes/ and continuously deploys:
-
-prediction-api
-
-frontend
-
-ETL pipelines
-
-ML training CronJobs
-
-Ingress rules
-
-5. Monitoring
-
-Prometheus scrapes:
-
-API latency
-
-CronJob performance
-
-Pod health
-
-DB connection metrics
-
-Cluster utilization
-
-Grafana provides dashboards for:
-
-Model inference performance
-
-Training job health
-
-EKS node/pod metrics
-
-API throughput
-
-Getting Started
-1. Deploy Infrastructure
-cd terraform
-terraform init
-terraform apply -var-file="env.tfvars"
-
-2. Configure kubectl
-aws eks update-kubeconfig --region us-east-1 --name predictionml-eks
-kubectl get nodes
-
-3. Deploy Microservices
-
-ArgoCD automatically applies manifests from the kubernetes/ directory.
-
-Optional manual apply:
-
-kubectl apply -f kubernetes/
-
-4. Run Data Ingestion / Training Jobs
-
-CronJobs run automatically, but you can manually trigger:
-
-kubectl create job --from=cronjob/ml-train ml-train-manual
-
-5. Access Grafana & Prometheus
-
-Port forward via kubectl:
-
-kubectl port-forward svc/grafana 3000:3000 -n monitoring
-kubectl port-forward svc/prometheus-server 9090:9090 -n monitoring
-
-Roadmap
-
-NBA live-streaming stats ingestion
-
-Multiple model versions (model registry)
-
-Canary deployments for new model releases
-
-CI/CD automation from GitHub → ECR → ArgoCD
-
-Feature store for ML inputs
-
-Model performance dashboards in Grafana
-
-Real-time prediction endpoint rate limiting + caching
+- [x] Hardened AMI with monitoring baked in.
+- [x] AWS bootstrap (VPC, subnet, EC2) via Terraform.
+- [x] Baseline Ansible role/playbook for app services.
+- [x] Prometheus/Grafana deployment plus starter dashboard.
+- [x] CI/CD stages to run Packer → Terraform → Ansible automatically.
